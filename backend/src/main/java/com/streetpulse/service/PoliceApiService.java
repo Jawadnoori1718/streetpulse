@@ -1,6 +1,8 @@
 package com.streetpulse.service;
 
 import com.streetpulse.model.PoliceIncident;
+import jakarta.annotation.PostConstruct;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
@@ -22,8 +24,36 @@ public class PoliceApiService {
 
     private final RestTemplate restTemplate;
 
+    /** How many months of history to merge. Each month is one upstream API call. */
+    @Value("${police.history.months:12}")
+    private int historyMonths;
+
+    /** How long the merged result stays cached before a refresh is allowed. */
+    @Value("${police.cache.ttl-minutes:360}")
+    private long cacheTtlMinutes;
+
+    // Simple time-boxed in-memory cache — avoids re-fetching 12 months on every request.
+    private volatile List<PoliceIncident> cachedRecent = Collections.emptyList();
+    private volatile long cachedAtMillis = 0L;
+
     public PoliceApiService(RestTemplate restTemplate) {
         this.restTemplate = restTemplate;
+    }
+
+    /** Warm the cache in the background on startup so the first user request is fast. */
+    @PostConstruct
+    public void warmCacheAsync() {
+        Thread t = new Thread(() -> {
+            try {
+                fetchRecentCrimes();
+                System.out.println("[StreetPulse] Police data cache warmed (" + cachedRecent.size()
+                    + " crimes over " + historyMonths + " months).");
+            } catch (Exception e) {
+                System.err.println("[StreetPulse] Police cache warm failed: " + e.getMessage());
+            }
+        }, "police-cache-warmer");
+        t.setDaemon(true);
+        t.start();
     }
 
     public List<PoliceIncident> fetchCrimes(String date) {
@@ -42,19 +72,38 @@ public class PoliceApiService {
         }
     }
 
-    /** Merge last 3 available months (Police UK has ~2 month lag), deduplicate by id. */
+    /**
+     * Merge the last {@code historyMonths} available months (Police UK has a ~2 month lag),
+     * deduplicated by id. Results are cached for {@code cacheTtlMinutes} to avoid hammering
+     * the upstream API on every request.
+     */
     public List<PoliceIncident> fetchRecentCrimes() {
+        long ageMillis = System.currentTimeMillis() - cachedAtMillis;
+        if (!cachedRecent.isEmpty() && ageMillis < cacheTtlMinutes * 60_000L) {
+            return cachedRecent;
+        }
+
         DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyy-MM");
         LocalDate now = LocalDate.now();
 
         Map<String, PoliceIncident> merged = new LinkedHashMap<>();
-        for (int i = 1; i <= 3; i++) {
+        int months = Math.max(1, historyMonths);
+        // Start at month -2 (data lag) and walk back through the requested history window.
+        for (int i = 2; i < 2 + months; i++) {
             String month = now.minusMonths(i).format(fmt);
             for (PoliceIncident pi : fetchCrimes(month)) {
                 merged.putIfAbsent(pi.getId(), pi);
             }
         }
-        return new ArrayList<>(merged.values());
+
+        List<PoliceIncident> result = new ArrayList<>(merged.values());
+        // Only replace a populated cache if the fresh fetch actually returned data,
+        // so a transient upstream outage doesn't wipe good cached data.
+        if (!result.isEmpty() || cachedRecent.isEmpty()) {
+            cachedRecent = result;
+            cachedAtMillis = System.currentTimeMillis();
+        }
+        return cachedRecent;
     }
 
     @SuppressWarnings("unchecked")

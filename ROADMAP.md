@@ -40,17 +40,28 @@ pushed independently.
 - Hardened `.gitignore` (no database files or secrets committed).
 - Roadmap committed so the direction is on record.
 
-### Phase 2 — Data layer & ingestion
-- Migrate **H2 → PostgreSQL + PostGIS** (a database that understands geography).
-- Widen Police UK ingestion to ~12 months of history across a larger area.
-- Add caching so repeated data pulls don't hammer the upstream API.
-- *Why:* the prediction model needs lots of history and fast spatial queries.
+### Phase 2 — Data foundation & risk baseline  ✅
+- Widen Police UK ingestion to **12 months** of history (configurable).
+- Add **time-boxed caching** so repeated pulls don't hammer the upstream API,
+  with background cache warming on startup.
+- Build the **explainable risk baseline**: `GET /api/risk?lat=&lng=&hour=` returns
+  a 0–100 spatiotemporal score (Gaussian spatial kernel × severity × recency),
+  normalised against a data-derived reference, with the contributing factors.
+- **Decision:** stayed on **H2** rather than migrating to PostgreSQL + PostGIS.
+  At Uxbridge data volumes the in-memory computation is fast and zero-install;
+  PostGIS is recorded as a *production-scaling* upgrade for later, not a need now.
+- **Known limitation found in testing:** Police UK data has no time-of-day (only
+  the month), and police records vastly outnumber community reports — so the
+  hour-of-day signal is weak in the baseline. The score is currently mostly
+  *spatial*. Addressing this is a goal of Phase 3.
 
 ### Phase 3 — The flagship: ML risk forecast  ⭐
 - A small Python (FastAPI) service that learns risk per
   **(location cell × hour-of-day × day-of-week)** from the fused dataset.
 - Start explainable (kernel-density / Poisson baseline), then upgrade to a
   gradient-boosted model (XGBoost) and compare.
+- Make time-of-day actually matter (see the Phase 2 limitation): introduce a
+  learned or criminological time-of-day prior so the score moves with the hour.
 - Serve a **live, time-aware risk heat-layer** on the map plus a "Risk: 34/100"
   score that changes with the time of day.
 - *Why:* this is the centrepiece — real, explainable machine learning.
