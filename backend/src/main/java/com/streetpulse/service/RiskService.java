@@ -3,6 +3,7 @@ package com.streetpulse.service;
 import com.streetpulse.model.Incident;
 import com.streetpulse.model.IncidentSeverity;
 import com.streetpulse.model.PoliceIncident;
+import com.streetpulse.model.RiskCell;
 import com.streetpulse.model.RiskResult;
 import com.streetpulse.repository.IncidentRepository;
 import org.springframework.beans.factory.annotation.Value;
@@ -44,6 +45,14 @@ public class RiskService {
     /** Spatial kernel bandwidth in metres — larger = smoother, wider influence. */
     @Value("${risk.bandwidth-metres:400}")
     private double bandwidthMetres;
+
+    // Heat-map grid bounds over the Uxbridge / West London area, and its resolution.
+    @Value("${risk.grid.south:51.500}") private double gridSouth;
+    @Value("${risk.grid.north:51.575}") private double gridNorth;
+    @Value("${risk.grid.west:-0.515}")  private double gridWest;
+    @Value("${risk.grid.east:-0.400}")  private double gridEast;
+    @Value("${risk.grid.rows:22}")      private int gridRows;
+    @Value("${risk.grid.cols:26}")      private int gridCols;
 
     private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd");
     private static final double EARTH_RADIUS_M = 6_371_000.0;
@@ -90,6 +99,34 @@ public class RiskService {
 
         return new RiskResult(lat, lng, hour, score, level,
             acc.nearbyReports, acc.nearbyCrimes, topFactors, explanation);
+    }
+
+    /**
+     * Score a grid of points across the West London bounds for an optional hour-of-day.
+     * The event set and normalisation reference are built once and reused for every cell,
+     * so this is a single efficient pass rather than one lookup per cell.
+     * Only cells with a non-zero score are returned, keeping the heat-map payload small.
+     */
+    public List<RiskCell> computeGrid(Integer hour) {
+        List<Event> events = buildEvents();
+        double reference = referenceScore(events);
+        List<RiskCell> cells = new ArrayList<>();
+        if (events.isEmpty()) return cells;
+
+        int rows = Math.max(2, gridRows);
+        int cols = Math.max(2, gridCols);
+        double latStep = (gridNorth - gridSouth) / (rows - 1);
+        double lngStep = (gridEast - gridWest) / (cols - 1);
+
+        for (int r = 0; r < rows; r++) {
+            double lat = gridSouth + r * latStep;
+            for (int c = 0; c < cols; c++) {
+                double lng = gridWest + c * lngStep;
+                int score = normalise(scoreAt(lat, lng, hour, events).raw, reference);
+                if (score > 0) cells.add(new RiskCell(lat, lng, score));
+            }
+        }
+        return cells;
     }
 
     // ── Event assembly ──────────────────────────────────────────────────────────

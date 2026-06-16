@@ -55,16 +55,19 @@ pushed independently.
   hour-of-day signal is weak in the baseline. The score is currently mostly
   *spatial*. Addressing this is a goal of Phase 3.
 
-### Phase 3 — The flagship: ML risk forecast  ⭐
-- A small Python (FastAPI) service that learns risk per
-  **(location cell × hour-of-day × day-of-week)** from the fused dataset.
-- Start explainable (kernel-density / Poisson baseline), then upgrade to a
-  gradient-boosted model (XGBoost) and compare.
-- Make time-of-day actually matter (see the Phase 2 limitation): introduce a
-  learned or criminological time-of-day prior so the score moves with the hour.
-- Serve a **live, time-aware risk heat-layer** on the map plus a "Risk: 34/100"
-  score that changes with the time of day.
-- *Why:* this is the centrepiece — real, explainable machine learning.
+### Phase 3 — The flagship: live risk heat-map  ⭐ ✅
+- `GET /api/risk/grid?hour=` scores a grid across West London in a single pass
+  (event set + normalisation built once, reused for every cell).
+- A **Google Maps heat-layer** driven by that grid, with a **time-of-day slider**
+  (00:00–23:00) and a colour legend, on the existing map.
+- *Why:* this is the centrepiece — you can watch predicted risk across the area
+  and scrub it through the day.
+- **Stretch / future deepening:** replace the explainable baseline with a learned
+  model — a small Python (FastAPI) service training a gradient-boosted model
+  (XGBoost) on **(cell × hour × day-of-week)**, plus a time-of-day prior so the
+  hour signal is strong even where police data (which lacks a time of day)
+  dominates. The heat-map and slider already consume a clean grid API, so this
+  swaps in behind the same contract.
 
 ### Phase 4 — The AI agent (built on Phase 3)
 - Replace the single chat box with a real **agent loop** (tool use + memory).

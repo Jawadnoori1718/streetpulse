@@ -64,3 +64,24 @@ export interface FilterState {
   category: IncidentCategory | 'ALL';
   severity: IncidentSeverity | 'ALL';
 }
+
+// ── Risk model ─────────────────────────────────────────────
+// A single scored point in the risk grid (drives the heat-map).
+export interface RiskCell {
+  latitude: number;
+  longitude: number;
+  score: number; // 0–100
+}
+
+// Detailed risk score for one point (GET /api/risk).
+export interface RiskResult {
+  latitude: number;
+  longitude: number;
+  hour: number | null;
+  score: number;
+  level: string; // LOW | MODERATE | HIGH
+  nearbyReports: number;
+  nearbyCrimes: number;
+  topFactors: string[];
+  explanation: string;
+}

@@ -1,9 +1,12 @@
 package com.streetpulse.controller;
 
+import com.streetpulse.model.RiskCell;
 import com.streetpulse.model.RiskResult;
 import com.streetpulse.service.RiskService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 /**
  * Spatiotemporal risk scoring.
@@ -37,5 +40,19 @@ public class RiskController {
 
         RiskResult result = riskService.computeRisk(lat, lng, hour);
         return ResponseEntity.ok(result);
+    }
+
+    /**
+     * A grid of risk-scored points for the heat-map.
+     * Example: {@code GET /api/risk/grid?hour=23}
+     */
+    @GetMapping("/grid")
+    public ResponseEntity<?> grid(@RequestParam(required = false) Integer hour) {
+        if (hour != null && (hour < 0 || hour > 23)) {
+            return ResponseEntity.badRequest().body(
+                java.util.Map.of("error", "hour must be 0..23"));
+        }
+        List<RiskCell> cells = riskService.computeGrid(hour);
+        return ResponseEntity.ok(cells);
     }
 }

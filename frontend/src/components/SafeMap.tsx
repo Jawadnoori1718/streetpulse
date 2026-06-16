@@ -1,8 +1,22 @@
 import { useCallback, useRef } from 'react';
-import { GoogleMap, useLoadScript, Marker, Circle } from '@react-google-maps/api';
-import type { Incident, IncidentSeverity, FilterState, PoliceIncident } from '../types';
+import { GoogleMap, useLoadScript, Marker, Circle, HeatmapLayer } from '@react-google-maps/api';
+import type { Incident, IncidentSeverity, FilterState, PoliceIncident, RiskCell } from '../types';
 
 const CENTER = { lat: 51.5441, lng: -0.4779 };
+
+// Must be a stable module-level constant — a new array each render makes the
+// Maps script reload and warn. The 'visualization' library provides HeatmapLayer.
+const MAP_LIBRARIES: ('visualization')[] = ['visualization'];
+
+// Green → lime → amber → orange → red. First stop is transparent (heatmap requirement).
+const HEATMAP_GRADIENT = [
+  'rgba(22,163,74,0)',
+  'rgba(22,163,74,0.65)',
+  'rgba(132,204,22,0.75)',
+  'rgba(234,179,8,0.85)',
+  'rgba(249,115,22,0.9)',
+  'rgba(220,38,38,0.95)',
+];
 
 const SEVERITY_COLOR: Record<IncidentSeverity, string> = {
   HIGH:   '#dc2626',
@@ -42,6 +56,8 @@ interface SafeMapProps {
   onPoliceSelect: (pc: PoliceIncident) => void;
   policeCrimes?: PoliceIncident[];
   showPolice?: boolean;
+  riskCells?: RiskCell[];
+  showRisk?: boolean;
 }
 
 export default function SafeMap({
@@ -52,10 +68,13 @@ export default function SafeMap({
   onPoliceSelect,
   policeCrimes = [],
   showPolice = true,
+  riskCells = [],
+  showRisk = false,
 }: SafeMapProps) {
   // ── ALL HOOKS FIRST ───────────────────────────────────────────────────────
   const { isLoaded, loadError } = useLoadScript({
     googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_KEY ?? '',
+    libraries: MAP_LIBRARIES,
   });
 
   const mapRef = useRef<google.maps.Map | null>(null);
@@ -117,6 +136,15 @@ export default function SafeMap({
     scale: 5,
   };
 
+  // Weighted points for the risk heat-map (google is defined past the isLoaded guard).
+  const heatData: google.maps.visualization.WeightedLocation[] =
+    showRisk && window.google?.maps?.visualization
+      ? riskCells.map((c) => ({
+          location: new google.maps.LatLng(c.latitude, c.longitude),
+          weight: c.score,
+        }))
+      : [];
+
   return (
     <GoogleMap
       mapContainerStyle={{ height: '100%', width: '100%' }}
@@ -126,6 +154,20 @@ export default function SafeMap({
       onClick={handleMapClick}
       onLoad={onLoad}
     >
+      {/* Risk forecast heat-map (drawn first, beneath the markers) */}
+      {showRisk && heatData.length > 0 && (
+        <HeatmapLayer
+          data={heatData}
+          options={{
+            radius: 34,
+            opacity: 0.55,
+            maxIntensity: 100,
+            dissipating: true,
+            gradient: HEATMAP_GRADIENT,
+          }}
+        />
+      )}
+
       {/* Police UK crime markers */}
       {showPolice &&
         policeCrimes

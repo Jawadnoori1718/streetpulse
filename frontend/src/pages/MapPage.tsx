@@ -6,8 +6,8 @@ import ReportForm from '../components/ReportForm';
 import LiveFeed from '../components/LiveFeed';
 import MapFilters from '../components/MapFilters';
 import AIAssistant from '../components/AIAssistant';
-import { fetchIncidents, fetchRecentIncidents, fetchPoliceCrimes, upvoteIncident } from '../services/api';
-import type { Incident, FilterState, PoliceIncident } from '../types';
+import { fetchIncidents, fetchRecentIncidents, fetchPoliceCrimes, upvoteIncident, fetchRiskGrid } from '../services/api';
+import type { Incident, FilterState, PoliceIncident, RiskCell } from '../types';
 
 type MobileTab = 'map' | 'filters' | 'feed';
 
@@ -190,6 +190,11 @@ export default function MapPage() {
   const [showPolice, setShowPolice]           = useState(true);
   const [loading, setLoading]                 = useState(true);
 
+  // Risk forecast heat-map
+  const [showRisk, setShowRisk]   = useState(true);
+  const [riskHour, setRiskHour]   = useState<number>(new Date().getHours());
+  const [riskCells, setRiskCells] = useState<RiskCell[]>([]);
+
   // Modal states
   const [showReport, setShowReport]       = useState(false);
   const [clickedCoords, setClickedCoords] = useState<{ lat: number; lng: number } | null>(null);
@@ -216,6 +221,13 @@ export default function MapPage() {
   }, []);
 
   useEffect(() => { fetchPoliceCrimes().then(setPoliceCrimes).catch(() => {}); }, []);
+
+  // Refetch the risk grid when the layer is toggled on or the hour changes (debounced).
+  useEffect(() => {
+    if (!showRisk) { setRiskCells([]); return; }
+    const t = setTimeout(() => { fetchRiskGrid(riskHour).then(setRiskCells).catch(() => {}); }, 250);
+    return () => clearTimeout(t);
+  }, [showRisk, riskHour]);
   useEffect(() => {
     loadData();
     const interval = setInterval(loadData, 30_000);
@@ -325,7 +337,60 @@ export default function MapPage() {
         onPoliceSelect={setSelectedPolice}
         policeCrimes={policeCrimes}
         showPolice={showPolice}
+        riskCells={riskCells}
+        showRisk={showRisk}
       />
+
+      {/* Risk forecast control — toggle + time-of-day slider + legend */}
+      <div style={{
+        position: 'absolute', bottom: '16px', left: '50%', transform: 'translateX(-50%)',
+        zIndex: 1000, width: '340px', maxWidth: '92%',
+        background: 'rgba(255,255,255,0.96)', backdropFilter: 'blur(8px)',
+        border: '1px solid #e2e8f0', borderRadius: '14px', padding: '12px 16px',
+        boxShadow: '0 4px 20px rgba(0,0,0,0.12)', fontFamily: 'Inter',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: showRisk ? '12px' : 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#0d9488', display: 'inline-block' }} />
+            <span style={{ fontSize: '13px', fontWeight: 700, color: '#1e3a5f' }}>Risk Forecast</span>
+            <span style={{ fontSize: '10px', color: '#94a3b8' }}>AI · predicted</span>
+          </div>
+          <button
+            onClick={() => setShowRisk((v) => !v)}
+            style={{
+              border: 'none', cursor: 'pointer', borderRadius: '99px', padding: '4px 12px',
+              fontSize: '11px', fontWeight: 700, fontFamily: 'Inter', letterSpacing: '0.04em',
+              background: showRisk ? '#1e3a5f' : '#e2e8f0', color: showRisk ? 'white' : '#64748b',
+            }}
+          >
+            {showRisk ? 'ON' : 'OFF'}
+          </button>
+        </div>
+
+        {showRisk && (
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{ fontSize: '12px', fontWeight: 600, color: '#1e3a5f', minWidth: '48px' }}>
+                {String(riskHour).padStart(2, '0')}:00
+              </span>
+              <input
+                type="range" min={0} max={23} value={riskHour}
+                onChange={(e) => setRiskHour(Number(e.target.value))}
+                style={{ flex: 1, accentColor: '#1e3a5f', cursor: 'pointer' }}
+                aria-label="Time of day"
+              />
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '10px' }}>
+              <span style={{ fontSize: '10px', color: '#94a3b8' }}>Lower</span>
+              <div style={{ flex: 1, height: '6px', borderRadius: '3px', background: 'linear-gradient(to right, #16a34a, #84cc16, #eab308, #f97316, #dc2626)' }} />
+              <span style={{ fontSize: '10px', color: '#94a3b8' }}>Higher</span>
+            </div>
+            <p style={{ fontSize: '10px', color: '#94a3b8', margin: '8px 0 0', lineHeight: 1.5 }}>
+              Drag to see how predicted risk shifts across the day.
+            </p>
+          </>
+        )}
+      </div>
     </div>
   );
 

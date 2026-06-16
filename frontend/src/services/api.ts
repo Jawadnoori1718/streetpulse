@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { Incident, NewIncident, IncidentStats, AIAnalysisResponse, PoliceIncident } from '../types';
+import type { Incident, NewIncident, IncidentStats, AIAnalysisResponse, PoliceIncident, RiskCell, RiskResult } from '../types';
 
 // Vite proxy routes /api → http://localhost:8080 in dev
 // In production, set VITE_API_URL to your deployed backend URL
@@ -65,5 +65,23 @@ export async function analyseWithAI(prompt: string): Promise<AIAnalysisResponse>
 /** Fetch recent Police UK crime data for Uxbridge area */
 export async function fetchPoliceCrimes(): Promise<PoliceIncident[]> {
   const { data } = await api.get<PoliceIncident[]>('/police/crimes/recent');
+  return data;
+}
+
+// ── Risk model ────────────────────────────────────────────
+
+/** Fetch the risk grid for the heat-map, optionally for a given hour of day (0–23). */
+export async function fetchRiskGrid(hour?: number): Promise<RiskCell[]> {
+  const params: Record<string, number> = {};
+  if (hour != null) params.hour = hour;
+  const { data } = await api.get<RiskCell[]>('/risk/grid', { params });
+  return data;
+}
+
+/** Fetch a detailed, explainable risk score for a single point and optional hour. */
+export async function fetchRiskAt(lat: number, lng: number, hour?: number): Promise<RiskResult> {
+  const params: Record<string, number> = { lat, lng };
+  if (hour != null) params.hour = hour;
+  const { data } = await api.get<RiskResult>('/risk', { params });
   return data;
 }
