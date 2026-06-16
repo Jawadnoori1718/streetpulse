@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Send, Loader2, RotateCcw, X, AlertCircle } from 'lucide-react';
-import { analyseWithAI } from '../services/api';
+import { chatWithAgent } from '../services/api';
 
 const PROMPTS = [
   'Is it safe to walk from Uxbridge station to the canal at night?',
@@ -11,6 +11,7 @@ const PROMPTS = [
 export default function AIAssistant() {
   const [prompt, setPrompt]     = useState('');
   const [response, setResponse] = useState('');
+  const [mode, setMode]         = useState<'agent' | 'fallback' | ''>('');
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState('');
   const [asked, setAsked]       = useState('');
@@ -22,18 +23,20 @@ export default function AIAssistant() {
     setPrompt('');
     setLoading(true);
     setResponse('');
+    setMode('');
     setError('');
     try {
-      const { analysis } = await analyseWithAI(text);
-      setResponse(analysis);
+      const { reply, mode } = await chatWithAgent(text);
+      setResponse(reply);
+      setMode(mode);
     } catch {
-      setError('Gemini AI is currently unavailable. Check the backend is running on port 8080 and the Gemini API key is set in application.properties.');
+      setError('The AI assistant is currently unavailable. Check the backend is running on port 8080.');
     } finally {
       setLoading(false);
     }
   };
 
-  const reset = () => { setPrompt(''); setResponse(''); setError(''); setAsked(''); };
+  const reset = () => { setPrompt(''); setResponse(''); setMode(''); setError(''); setAsked(''); };
 
   const hasResult = response || error;
 
@@ -120,6 +123,16 @@ export default function AIAssistant() {
             className="animate-fade-in-up"
             style={{ background: 'rgba(30,58,95,0.05)', border: '1px solid rgba(30,58,95,0.12)', borderRadius: '2px 10px 10px 10px', padding: '13px 14px', alignSelf: 'flex-end', maxWidth: '92%' }}
           >
+            {mode && (
+              <span style={{
+                display: 'inline-block', marginBottom: '8px', fontSize: '9px', fontWeight: 700,
+                letterSpacing: '0.06em', textTransform: 'uppercase', padding: '2px 7px', borderRadius: '99px',
+                background: mode === 'agent' ? 'rgba(13,148,136,0.12)' : 'rgba(100,116,139,0.12)',
+                color: mode === 'agent' ? '#0d9488' : '#64748b',
+              }}>
+                {mode === 'agent' ? '✦ AI Agent' : 'Data-driven'}
+              </span>
+            )}
             <p style={{ fontSize: '12px', color: '#1e3a5f', lineHeight: 1.8, margin: 0, whiteSpace: 'pre-wrap', fontFamily: 'Inter' }}>
               {response}
             </p>

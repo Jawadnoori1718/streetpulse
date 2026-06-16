@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { Incident, NewIncident, IncidentStats, AIAnalysisResponse, PoliceIncident, RiskCell, RiskResult } from '../types';
+import type { Incident, NewIncident, IncidentStats, AIAnalysisResponse, AgentResponse, PoliceIncident, RiskCell, RiskResult } from '../types';
 
 // Vite proxy routes /api → http://localhost:8080 in dev
 // In production, set VITE_API_URL to your deployed backend URL
@@ -54,9 +54,18 @@ export async function fetchStats(): Promise<IncidentStats> {
 
 // ── AI ────────────────────────────────────────────────────
 
-/** Send a route/area description to the AI safety analyser */
+/** Send a route/area description to the AI safety analyser (single-shot, Gemini or fallback) */
 export async function analyseWithAI(prompt: string): Promise<AIAnalysisResponse> {
   const { data } = await api.post<AIAnalysisResponse>('/ai/analyse', { prompt });
+  return data;
+}
+
+/**
+ * Ask the StreetPulse AI agent. When an Anthropic key is configured this is a Claude
+ * agent that uses tools to query real data; otherwise it returns the data-driven fallback.
+ */
+export async function chatWithAgent(message: string): Promise<AgentResponse> {
+  const { data } = await api.post<AgentResponse>('/ai/agent', { message }, { timeout: 60000 });
   return data;
 }
 

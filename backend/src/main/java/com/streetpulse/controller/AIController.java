@@ -5,6 +5,7 @@ import com.streetpulse.model.IncidentCategory;
 import com.streetpulse.model.IncidentSeverity;
 import com.streetpulse.model.PoliceIncident;
 import com.streetpulse.repository.IncidentRepository;
+import com.streetpulse.service.AgentService;
 import com.streetpulse.service.PoliceApiService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
@@ -29,13 +30,16 @@ public class AIController {
     private final RestTemplate restTemplate;
     private final IncidentRepository incidentRepository;
     private final PoliceApiService policeApiService;
+    private final AgentService agentService;
 
     public AIController(RestTemplate restTemplate,
                         IncidentRepository incidentRepository,
-                        PoliceApiService policeApiService) {
+                        PoliceApiService policeApiService,
+                        AgentService agentService) {
         this.restTemplate = restTemplate;
         this.incidentRepository = incidentRepository;
         this.policeApiService = policeApiService;
+        this.agentService = agentService;
     }
 
     @PostConstruct
@@ -83,6 +87,39 @@ public class AIController {
         } catch (Exception e) {
             System.err.println("[StreetPulse] Data analysis error: " + e.getMessage());
             return ResponseEntity.ok(Map.of("analysis", generateStaticFallback()));
+        }
+    }
+
+    /**
+     * Agentic endpoint: a Claude agent that uses tools to query real data before answering.
+     * Falls back to the data-driven analysis when no Anthropic key is configured or the call fails.
+     */
+    @PostMapping("/agent")
+    public ResponseEntity<Map<String, String>> agent(@RequestBody Map<String, String> request) {
+        String message = request.get("message");
+        if (message == null || message.isBlank()) {
+            message = request.get("prompt"); // accept either key
+        }
+        if (message == null || message.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "message is required"));
+        }
+
+        if (agentService.isAvailable()) {
+            try {
+                String reply = agentService.chat(message);
+                if (reply != null && !reply.isBlank()) {
+                    return ResponseEntity.ok(Map.of("reply", reply, "mode", "agent"));
+                }
+            } catch (Exception e) {
+                System.err.println("[StreetPulse] Agent error, falling back: " + e.getMessage());
+            }
+        }
+
+        // Fallback — keeps the assistant useful with no Anthropic key.
+        try {
+            return ResponseEntity.ok(Map.of("reply", generateDataDrivenAnalysis(message), "mode", "fallback"));
+        } catch (Exception e) {
+            return ResponseEntity.ok(Map.of("reply", generateStaticFallback(), "mode", "fallback"));
         }
     }
 

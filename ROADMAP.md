@@ -69,12 +69,20 @@ pushed independently.
   dominates. The heat-map and slider already consume a clean grid API, so this
   swaps in behind the same contract.
 
-### Phase 4 — The AI agent (built on Phase 3)
-- Replace the single chat box with a real **agent loop** (tool use + memory).
-- Tools: query incidents, fetch police data, get directions, call the risk model.
-- Two flagship interactions:
-  - **Safest route, not fastest** — routes scored against the risk model.
-  - **Ask your data** — natural language → real database query → chart.
+### Phase 4 — The AI agent  ✅
+- A real **agent loop on Claude (Opus 4.8)** via the official Anthropic Java SDK,
+  replacing the single-shot chat box. Tools the agent can call:
+  - `SearchIncidents` — query community reports by area / category / severity
+  - `GetRiskScore` — call the Phase 2/3 risk model for a point and hour
+  - `GetPoliceCrimes` — summarise official Police UK data
+  - `GetStats` — community report statistics
+- `POST /api/ai/agent` runs the loop and returns a grounded answer with a `mode`
+  flag (`agent` vs `fallback`); the assistant UI shows which answered.
+- **Graceful + free by default:** with no `ANTHROPIC_API_KEY` the endpoint falls
+  back to the data-driven analysis — the app keeps working at zero cost. Add the
+  (paid) key to switch on the real tool-using agent.
+- **Remaining / stretch:** "safest route, not fastest" (needs the Google
+  Directions API) and a "render a chart from your question" path.
 
 ### Phase 5 — Companion features
 - User accounts (saved routes, personal alerts, "my reports").

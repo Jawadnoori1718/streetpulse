@@ -48,6 +48,11 @@ export interface AIAnalysisResponse {
   analysis: string;
 }
 
+export interface AgentResponse {
+  reply: string;
+  mode: 'agent' | 'fallback'; // 'agent' = Claude tool-use; 'fallback' = data-driven
+}
+
 export interface PoliceIncident {
   id: string;
   category: string;       // human-readable label
