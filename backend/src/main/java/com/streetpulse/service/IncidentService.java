@@ -17,10 +17,12 @@ public class IncidentService {
     private static final Logger log = LoggerFactory.getLogger(IncidentService.class);
 
     private final IncidentRepository incidentRepository;
+    private final TriageService triageService;
 
     @Autowired
-    public IncidentService(IncidentRepository incidentRepository) {
+    public IncidentService(IncidentRepository incidentRepository, TriageService triageService) {
         this.incidentRepository = incidentRepository;
+        this.triageService = triageService;
     }
 
     public List<Incident> getAllIncidents() {
@@ -34,8 +36,24 @@ public class IncidentService {
     public Incident createIncident(Incident incident) {
         incident.setReportedAt(LocalDateTime.now());
         incident.setUpvotes(0);
+
+        // ── Agentic triage ───────────────────────────────────────────────
+        boolean escalated = triageService.escalateSeverityIfDangerous(incident);
+
+        Optional<Incident> duplicate = triageService.findDuplicate(incident);
+        if (duplicate.isPresent()) {
+            // Merge: treat the new submission as a confirmation of the existing report.
+            Incident existing = duplicate.get();
+            existing.setUpvotes(existing.getUpvotes() + 1);
+            Incident merged = incidentRepository.save(existing);
+            log.info("Triage: merged duplicate report into incident {} (now {} upvotes)",
+                    merged.getId(), merged.getUpvotes());
+            return merged;
+        }
+
         Incident saved = incidentRepository.save(incident);
-        log.info("New incident reported: [{}] {} at ({}, {})",
+        log.info("New incident reported{}: [{}] {} at ({}, {})",
+                escalated ? " (severity escalated by triage)" : "",
                 saved.getSeverity(), saved.getTitle(),
                 saved.getLatitude(), saved.getLongitude());
         return saved;

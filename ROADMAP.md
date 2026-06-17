@@ -84,11 +84,19 @@ pushed independently.
 - **Remaining / stretch:** "safest route, not fastest" (needs the Google
   Directions API) and a "render a chart from your question" path.
 
-### Phase 5 — Companion features
-- User accounts (saved routes, personal alerts, "my reports").
-- Proactive, location-aware alerts ("a high-severity report just appeared nearby").
-- Agentic report triage — auto-classify, de-duplicate, and validate new reports.
-- Weekly AI safety digest for the community.
+### Phase 5 — Companion features  ✅ (triage + alerts)
+- **Agentic report triage** (runs on every submission):
+  - *Severity escalation* — text describing danger (weapon, assault, being
+    followed) forces HIGH severity regardless of what the reporter selected.
+  - *De-duplication* — a near-identical report (same category, within ~150m, in
+    the last 48h) is merged into the existing one (upvotes it) instead of
+    creating a duplicate, keeping the data clean.
+- **Live alerts** — `GET /api/alerts` surfaces recent high-priority activity; a
+  Live Alerts panel on the map shows it and refreshes with the data poll.
+- **Deferred (deliberate):** user accounts / saved routes and a weekly AI digest.
+  Accounts add real auth + security surface and are best done as a focused,
+  standalone piece rather than rushed in — left as a clean future add-on so the
+  rest of Phase 5 ships solid.
 
 ---
 

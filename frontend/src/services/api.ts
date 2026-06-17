@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { Incident, NewIncident, IncidentStats, AIAnalysisResponse, AgentResponse, PoliceIncident, RiskCell, RiskResult } from '../types';
+import type { Incident, NewIncident, IncidentStats, AIAnalysisResponse, AgentResponse, PoliceIncident, RiskCell, RiskResult, Alert } from '../types';
 
 // Vite proxy routes /api → http://localhost:8080 in dev
 // In production, set VITE_API_URL to your deployed backend URL
@@ -74,6 +74,14 @@ export async function chatWithAgent(message: string): Promise<AgentResponse> {
 /** Fetch recent Police UK crime data for Uxbridge area */
 export async function fetchPoliceCrimes(): Promise<PoliceIncident[]> {
   const { data } = await api.get<PoliceIncident[]>('/police/crimes/recent');
+  return data;
+}
+
+// ── Alerts ─────────────────────────────────────────────────
+
+/** Fetch the live alerts feed (recent high-priority activity). */
+export async function fetchAlerts(): Promise<Alert[]> {
+  const { data } = await api.get<Alert[]>('/alerts');
   return data;
 }
 

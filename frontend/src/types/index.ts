@@ -70,6 +70,17 @@ export interface FilterState {
   severity: IncidentSeverity | 'ALL';
 }
 
+// ── Live alerts ────────────────────────────────────────────
+export interface Alert {
+  level: 'HIGH' | 'INFO';
+  title: string;
+  message: string;
+  area: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  reportedAt: string | null;
+}
+
 // ── Risk model ─────────────────────────────────────────────
 // A single scored point in the risk grid (drives the heat-map).
 export interface RiskCell {

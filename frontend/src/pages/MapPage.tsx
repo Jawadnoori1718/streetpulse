@@ -6,8 +6,8 @@ import ReportForm from '../components/ReportForm';
 import LiveFeed from '../components/LiveFeed';
 import MapFilters from '../components/MapFilters';
 import AIAssistant from '../components/AIAssistant';
-import { fetchIncidents, fetchRecentIncidents, fetchPoliceCrimes, upvoteIncident, fetchRiskGrid } from '../services/api';
-import type { Incident, FilterState, PoliceIncident, RiskCell } from '../types';
+import { fetchIncidents, fetchRecentIncidents, fetchPoliceCrimes, upvoteIncident, fetchRiskGrid, fetchAlerts } from '../services/api';
+import type { Incident, FilterState, PoliceIncident, RiskCell, Alert } from '../types';
 
 type MobileTab = 'map' | 'filters' | 'feed';
 
@@ -190,6 +190,9 @@ export default function MapPage() {
   const [showPolice, setShowPolice]           = useState(true);
   const [loading, setLoading]                 = useState(true);
 
+  // Live alerts
+  const [alerts, setAlerts] = useState<Alert[]>([]);
+
   // Risk forecast heat-map
   const [showRisk, setShowRisk]   = useState(true);
   const [riskHour, setRiskHour]   = useState<number>(new Date().getHours());
@@ -218,6 +221,8 @@ export default function MapPage() {
     } finally {
       setLoading(false);
     }
+    // Alerts load independently so a failure never blocks the incident list.
+    fetchAlerts().then(setAlerts).catch(() => {});
   }, []);
 
   useEffect(() => { fetchPoliceCrimes().then(setPoliceCrimes).catch(() => {}); }, []);
@@ -282,8 +287,37 @@ export default function MapPage() {
     </button>
   );
 
+  const highAlertCount = alerts.filter((a) => a.level === 'HIGH').length;
+
+  const AlertsPanel = alerts.length > 0 && (
+    <div style={{ background: 'white', borderRadius: '16px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+      <div style={{ background: '#1e3a5f', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: highAlertCount > 0 ? '#f87171' : '#4ade80', display: 'inline-block', animation: 'pulse-anim 2s ease-in-out infinite', flexShrink: 0 }} />
+        <span style={{ fontSize: '13px', fontWeight: 700, color: 'white' }}>Live Alerts</span>
+        <span style={{ marginLeft: 'auto', fontSize: '11px', color: 'rgba(255,255,255,0.6)' }}>
+          {highAlertCount > 0 ? `${highAlertCount} active` : 'all clear'}
+        </span>
+      </div>
+      <div style={{ maxHeight: '180px', overflowY: 'auto' }}>
+        {alerts.map((a, i) => (
+          <div key={i} style={{ padding: '10px 14px', borderTop: i > 0 ? '1px solid #f1f5f9' : 'none', display: 'flex', gap: '9px' }}>
+            <span style={{ width: '6px', height: '6px', borderRadius: '50%', marginTop: '5px', flexShrink: 0, background: a.level === 'HIGH' ? '#dc2626' : '#0d9488' }} />
+            <div style={{ minWidth: 0 }}>
+              <p style={{ margin: '0 0 1px', fontSize: '12px', fontWeight: 600, color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.title}</p>
+              <p style={{ margin: 0, fontSize: '11px', color: '#94a3b8', lineHeight: 1.4 }}>
+                {a.message}
+                {a.reportedAt && ` · ${formatDistanceToNow(new Date(a.reportedAt), { addSuffix: true })}`}
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
   const LeftPanel = (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+      {AlertsPanel}
       <MapFilters
         filters={filters}
         onChange={setFilters}
