@@ -5,7 +5,7 @@ import com.streetpulse.model.IncidentCategory;
 import com.streetpulse.model.IncidentSeverity;
 import com.streetpulse.model.PoliceIncident;
 import com.streetpulse.repository.IncidentRepository;
-import com.streetpulse.service.AgentService;
+import com.streetpulse.service.GeminiAgentService;
 import com.streetpulse.service.PoliceApiService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
@@ -30,12 +30,12 @@ public class AIController {
     private final RestTemplate restTemplate;
     private final IncidentRepository incidentRepository;
     private final PoliceApiService policeApiService;
-    private final AgentService agentService;
+    private final GeminiAgentService agentService;
 
     public AIController(RestTemplate restTemplate,
                         IncidentRepository incidentRepository,
                         PoliceApiService policeApiService,
-                        AgentService agentService) {
+                        GeminiAgentService agentService) {
         this.restTemplate = restTemplate;
         this.incidentRepository = incidentRepository;
         this.policeApiService = policeApiService;

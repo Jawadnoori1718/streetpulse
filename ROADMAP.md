@@ -69,18 +69,18 @@ pushed independently.
   dominates. The heat-map and slider already consume a clean grid API, so this
   swaps in behind the same contract.
 
-### Phase 4 — The AI agent  ✅
-- A real **agent loop on Claude (Opus 4.8)** via the official Anthropic Java SDK,
-  replacing the single-shot chat box. Tools the agent can call:
-  - `SearchIncidents` — query community reports by area / category / severity
-  - `GetRiskScore` — call the Phase 2/3 risk model for a point and hour
-  - `GetPoliceCrimes` — summarise official Police UK data
-  - `GetStats` — community report statistics
+### Phase 4 — The AI agent  ✅  (free — Gemini function-calling)
+- A real **tool-using agent loop on Google Gemini's free tier** (function calling),
+  replacing the single-shot chat box. Functions the agent can call:
+  - `search_incidents` — query community reports by area / category / severity
+  - `get_risk_score` — call the Phase 2/3 risk model for a point and hour
+  - `get_police_crimes` — summarise official Police UK data
+  - `get_stats` — community report statistics
 - `POST /api/ai/agent` runs the loop and returns a grounded answer with a `mode`
   flag (`agent` vs `fallback`); the assistant UI shows which answered.
-- **Graceful + free by default:** with no `ANTHROPIC_API_KEY` the endpoint falls
-  back to the data-driven analysis — the app keeps working at zero cost. Add the
-  (paid) key to switch on the real tool-using agent.
+- **Free and graceful:** a free `GEMINI_API_KEY` enables the real tool-using
+  agent; with no key the endpoint falls back to the data-driven analysis, so the
+  app always works at zero cost. (No paid API anywhere in the project.)
 - **Remaining / stretch:** "safest route, not fastest" (needs the Google
   Directions API) and a "render a chart from your question" path.
 
