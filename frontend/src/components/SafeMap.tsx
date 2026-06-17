@@ -1,22 +1,9 @@
-import { useCallback, useRef } from 'react';
-import { GoogleMap, useLoadScript, Marker, Circle, HeatmapLayer } from '@react-google-maps/api';
+import { MapContainer, TileLayer, CircleMarker, Circle, useMapEvents } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
 import type { Incident, IncidentSeverity, FilterState, PoliceIncident, RiskCell } from '../types';
 
-const CENTER = { lat: 51.5441, lng: -0.4779 };
-
-// Must be a stable module-level constant — a new array each render makes the
-// Maps script reload and warn. The 'visualization' library provides HeatmapLayer.
-const MAP_LIBRARIES: ('visualization')[] = ['visualization'];
-
-// Green → lime → amber → orange → red. First stop is transparent (heatmap requirement).
-const HEATMAP_GRADIENT = [
-  'rgba(22,163,74,0)',
-  'rgba(22,163,74,0.65)',
-  'rgba(132,204,22,0.75)',
-  'rgba(234,179,8,0.85)',
-  'rgba(249,115,22,0.9)',
-  'rgba(220,38,38,0.95)',
-];
+// Free, no-key, no-billing map: OpenStreetMap tiles via Leaflet.
+const CENTER: [number, number] = [51.5441, -0.4779];
 
 const SEVERITY_COLOR: Record<IncidentSeverity, string> = {
   HIGH:   '#dc2626',
@@ -24,28 +11,20 @@ const SEVERITY_COLOR: Record<IncidentSeverity, string> = {
   LOW:    '#16a34a',
 };
 
-const SEVERITY_SCALE: Record<IncidentSeverity, number> = {
-  HIGH:   1.35,
-  MEDIUM: 1.0,
-  LOW:    0.75,
+const SEVERITY_RADIUS: Record<IncidentSeverity, number> = {
+  HIGH:   11,
+  MEDIUM: 9,
+  LOW:    7,
 };
 
-const MAP_OPTIONS = {
-  minZoom: 12,
-  maxZoom: 18,
-  mapTypeControl: false,
-  streetViewControl: false,
-  fullscreenControl: false,
-  zoomControl: true,
-  clickableIcons: false,
-  styles: [
-    { featureType: 'poi',     elementType: 'labels', stylers: [{ visibility: 'off' }] },
-    { featureType: 'transit', elementType: 'labels', stylers: [{ visibility: 'off' }] },
-  ],
-};
-
-// google.maps.SymbolPath.CIRCLE == 0 (numeric literal — safe before Maps script loads)
-const CIRCLE_PATH = 0;
+// Risk → colour, matching the legend in the Risk Forecast control (green → red).
+function riskColor(score: number): string {
+  if (score < 20) return '#16a34a';
+  if (score < 40) return '#84cc16';
+  if (score < 60) return '#eab308';
+  if (score < 80) return '#f97316';
+  return '#dc2626';
+}
 
 interface SafeMapProps {
   incidents: Incident[];
@@ -60,6 +39,12 @@ interface SafeMapProps {
   showRisk?: boolean;
 }
 
+// Translate map clicks into "report here".
+function ClickHandler({ onMapClick }: { onMapClick: (lat: number, lng: number) => void }) {
+  useMapEvents({ click: (e) => onMapClick(e.latlng.lat, e.latlng.lng) });
+  return null;
+}
+
 export default function SafeMap({
   incidents,
   filters,
@@ -71,114 +56,55 @@ export default function SafeMap({
   riskCells = [],
   showRisk = false,
 }: SafeMapProps) {
-  // ── ALL HOOKS FIRST ───────────────────────────────────────────────────────
-  const { isLoaded, loadError } = useLoadScript({
-    googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_KEY ?? '',
-    libraries: MAP_LIBRARIES,
-  });
-
-  const mapRef = useRef<google.maps.Map | null>(null);
-  const onLoad = useCallback((map: google.maps.Map) => { mapRef.current = map; }, []);
-
-  const handleMapClick = useCallback(
-    (e: google.maps.MapMouseEvent) => {
-      if (e.latLng) onMapClick(e.latLng.lat(), e.latLng.lng());
-    },
-    [onMapClick],
-  );
-
-  // ── EARLY RETURNS ─────────────────────────────────────────────────────────
-  if (loadError) {
-    return (
-      <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f0f4f8' }}>
-        <div style={{ textAlign: 'center', padding: '32px' }}>
-          <p style={{ color: '#dc2626', fontWeight: 600, marginBottom: '8px' }}>Failed to load Google Maps</p>
-          <p style={{ color: '#64748b', fontSize: '13px' }}>Check that VITE_GOOGLE_MAPS_KEY in frontend/.env is valid.</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!isLoaded) {
-    return (
-      <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f0f4f8' }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{
-            width: '28px', height: '28px', margin: '0 auto 10px',
-            border: '2px solid #e2e8f0', borderTop: '2px solid #0d9488',
-            borderRadius: '50%', animation: 'spin 0.8s linear infinite',
-          }} />
-          <p style={{ color: '#94a3b8', fontSize: '13px' }}>Loading map...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // ── google IS now defined ─────────────────────────────────────────────────
-
   const visible = incidents.filter((inc) => {
     if (filters.category !== 'ALL' && inc.category !== filters.category) return false;
     if (filters.severity !== 'ALL' && inc.severity !== filters.severity) return false;
     return true;
   });
 
-  const makeIcon = (color: string, scale: number) => ({
-    path: CIRCLE_PATH,
-    fillColor: color, fillOpacity: 0.9,
-    strokeColor: '#ffffff', strokeWeight: 2,
-    scale: 11 * scale,
-  });
-
-  const policeIcon = {
-    path: CIRCLE_PATH,
-    fillColor: '#6366f1', fillOpacity: 0.55,
-    strokeColor: '#6366f1', strokeWeight: 1.5,
-    scale: 5,
-  };
-
-  // Weighted points for the risk heat-map (google is defined past the isLoaded guard).
-  const heatData: google.maps.visualization.WeightedLocation[] =
-    showRisk && window.google?.maps?.visualization
-      ? riskCells.map((c) => ({
-          location: new google.maps.LatLng(c.latitude, c.longitude),
-          weight: c.score,
-        }))
-      : [];
-
   return (
-    <GoogleMap
-      mapContainerStyle={{ height: '100%', width: '100%' }}
+    <MapContainer
       center={CENTER}
       zoom={14}
-      options={MAP_OPTIONS}
-      onClick={handleMapClick}
-      onLoad={onLoad}
+      minZoom={12}
+      maxZoom={18}
+      scrollWheelZoom
+      style={{ height: '100%', width: '100%' }}
     >
-      {/* Risk forecast heat-map (drawn first, beneath the markers) */}
-      {showRisk && heatData.length > 0 && (
-        <HeatmapLayer
-          data={heatData}
-          options={{
-            radius: 34,
-            opacity: 0.55,
-            maxIntensity: 100,
-            dissipating: true,
-            gradient: HEATMAP_GRADIENT,
-          }}
-        />
-      )}
+      <TileLayer
+        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+      />
+
+      <ClickHandler onMapClick={onMapClick} />
+
+      {/* Risk forecast heat field — soft overlapping circles (non-interactive, so clicks pass through) */}
+      {showRisk &&
+        riskCells.map((c, i) => (
+          <Circle
+            key={`risk-${i}`}
+            center={[c.latitude, c.longitude]}
+            radius={280}
+            interactive={false}
+            pathOptions={{
+              stroke: false,
+              fillColor: riskColor(c.score),
+              fillOpacity: 0.12 + (c.score / 100) * 0.28,
+            }}
+          />
+        ))}
 
       {/* Police UK crime markers */}
       {showPolice &&
         policeCrimes
           .filter((pc) => pc.latitude != null && pc.longitude != null)
           .map((pc) => (
-            <Marker
+            <CircleMarker
               key={`police-${pc.id}`}
-              position={{ lat: pc.latitude!, lng: pc.longitude! }}
-              icon={policeIcon}
-              zIndex={1}
-              onClick={() => onPoliceSelect(pc)}
+              center={[pc.latitude!, pc.longitude!]}
+              radius={5}
+              pathOptions={{ color: '#6366f1', fillColor: '#6366f1', fillOpacity: 0.55, weight: 1 }}
+              eventHandlers={{ click: () => onPoliceSelect(pc) }}
             />
           ))}
 
@@ -188,26 +114,23 @@ export default function SafeMap({
         .map((inc) => (
           <Circle
             key={`ring-${inc.id}`}
-            center={{ lat: inc.latitude, lng: inc.longitude }}
+            center={[inc.latitude, inc.longitude]}
             radius={90}
-            options={{
-              fillColor: '#dc2626', fillOpacity: 0.08,
-              strokeColor: '#dc2626', strokeOpacity: 0.2,
-              strokeWeight: 1, clickable: false,
-            }}
+            interactive={false}
+            pathOptions={{ color: '#dc2626', fillColor: '#dc2626', fillOpacity: 0.08, opacity: 0.2, weight: 1 }}
           />
         ))}
 
       {/* Community incident markers */}
       {visible.map((inc) => (
-        <Marker
+        <CircleMarker
           key={`inc-${inc.id}`}
-          position={{ lat: inc.latitude, lng: inc.longitude }}
-          icon={makeIcon(SEVERITY_COLOR[inc.severity], SEVERITY_SCALE[inc.severity])}
-          zIndex={inc.severity === 'HIGH' ? 3 : inc.severity === 'MEDIUM' ? 2 : 1}
-          onClick={() => onIncidentSelect(inc)}
+          center={[inc.latitude, inc.longitude]}
+          radius={SEVERITY_RADIUS[inc.severity]}
+          pathOptions={{ color: '#ffffff', fillColor: SEVERITY_COLOR[inc.severity], fillOpacity: 0.9, weight: 2 }}
+          eventHandlers={{ click: () => onIncidentSelect(inc) }}
         />
       ))}
-    </GoogleMap>
+    </MapContainer>
   );
 }

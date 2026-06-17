@@ -15,7 +15,7 @@ answers safety questions with an AI assistant grounded in that data.
 ## What it does
 
 - **Live incident map** — lighting failures, physical hazards, and suspicious
-  activity, pinned at street level (Google Maps).
+  activity, pinned at street level (Leaflet + OpenStreetMap — free, no API key).
 - **Police UK overlay** — verified crime records for the Uxbridge area, pulled
   live from the official open-data API.
 - **Analytics dashboard** — crime-type breakdowns, monthly trends, hotspot
@@ -32,7 +32,7 @@ answers safety questions with an AI assistant grounded in that data.
 
 | Layer     | Technology                                                        |
 |-----------|-------------------------------------------------------------------|
-| Frontend  | React 18, TypeScript, Vite, Google Maps, Chart.js                 |
+| Frontend  | React 18, TypeScript, Vite, Leaflet + OpenStreetMap, Chart.js     |
 | Backend   | Spring Boot 3.2 (Java 17), Spring Data JPA                        |
 | Database  | H2 embedded (file-based — no separate install needed)             |
 | AI        | Google Gemini (optional; graceful fallback without a key)         |
@@ -45,10 +45,9 @@ answers safety questions with an AI assistant grounded in that data.
 - Java 17
 - Maven 3.8+
 - Node.js 18+
-- A Google Maps JavaScript API key (for the frontend map)
 
 > No database install is required — H2 runs embedded and creates its own file
-> on first launch.
+> on first launch. The map uses free OpenStreetMap tiles — **no API key needed.**
 
 ---
 
@@ -73,7 +72,6 @@ sample incidents so the map and analytics aren't empty.
 
 ```bash
 cd frontend
-cp .env.example .env          # then add your Google Maps key
 npm install
 npm run dev
 ```
@@ -86,9 +84,10 @@ Open **http://localhost:5173**.
 
 | Variable                | Where           | Description                                            |
 |-------------------------|-----------------|--------------------------------------------------------|
-| `GEMINI_API_KEY`        | Backend env     | Google Gemini key. Optional — fallback works without it.|
-| `VITE_GOOGLE_MAPS_KEY`  | `frontend/.env` | Google Maps JavaScript API key (required for the map). |
+| `GEMINI_API_KEY`        | Backend env     | Google Gemini key (free tier). Optional — fallback works without it.|
 | `VITE_API_URL`          | `frontend/.env` | Backend base URL (optional; Vite proxies `/api` in dev).|
+
+The map needs **no key** — OpenStreetMap tiles are free.
 
 **Never commit real keys.** Secrets are supplied via environment variables and
 `.env` files, which are git-ignored. `application.properties` ships with empty
@@ -99,7 +98,7 @@ defaults only.
 ## Architecture
 
 ```
-Browser (React + Google Maps + Chart.js)
+Browser (React + Leaflet/OpenStreetMap + Chart.js)
     |
     |  /api/*  (Vite dev proxy → no CORS issues)
     v
