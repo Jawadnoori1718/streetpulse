@@ -8,9 +8,11 @@ import ReportsPage from './pages/ReportsPage';
 import AnalyticsPage from './pages/AnalyticsPage';
 import AIPage from './pages/AIPage';
 import AlertsPage from './pages/AlertsPage';
-import PlaceholderPage from './pages/PlaceholderPage';
+import SettingsPage from './pages/SettingsPage';
+import SavedPlacesPage from './pages/SavedPlacesPage';
 import { useMediaQuery } from './hooks/useMediaQuery';
 import { fetchStats, fetchAlerts } from './services/api';
+import type { Alert } from './types';
 
 function computeSafetyScore(total: number, high: number, last24: number): number {
   if (total === 0) return 80;
@@ -22,15 +24,13 @@ export default function App() {
   const isDesktop = useMediaQuery('(min-width: 1024px)');
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [safetyScore, setSafetyScore] = useState(80);
-  const [alertCount, setAlertCount] = useState(0);
+  const [alerts, setAlerts] = useState<Alert[]>([]);
 
   const refresh = useCallback(() => {
     fetchStats()
       .then((s) => setSafetyScore(computeSafetyScore(s.totalIncidents, s.highSeverityCount, s.last24HoursCount)))
       .catch(() => {});
-    fetchAlerts()
-      .then((a) => setAlertCount(a.filter((x) => x.level === 'HIGH').length))
-      .catch(() => {});
+    fetchAlerts().then(setAlerts).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -41,12 +41,12 @@ export default function App() {
 
   return (
     <BrowserRouter>
-      <div style={{ display: 'flex', minHeight: '100dvh' }}>
+      <div style={{ display: 'flex', height: '100dvh', overflow: 'hidden' }}>
         <Sidebar isDesktop={isDesktop} open={drawerOpen} onClose={() => setDrawerOpen(false)} safetyScore={safetyScore} />
 
-        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-          <TopBar isDesktop={isDesktop} alertCount={alertCount} onMenuClick={() => setDrawerOpen(true)} />
-          <main style={{ flex: 1, minWidth: 0, overflowX: 'hidden' }}>
+        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', height: '100dvh' }}>
+          <TopBar isDesktop={isDesktop} alerts={alerts} onMenuClick={() => setDrawerOpen(true)} />
+          <main style={{ flex: 1, minWidth: 0, minHeight: 0, overflowY: 'auto' }}>
             <Routes>
               <Route path="/" element={<OverviewPage />} />
               <Route path="/map" element={<LiveMapPage />} />
@@ -54,8 +54,8 @@ export default function App() {
               <Route path="/analytics" element={<AnalyticsPage />} />
               <Route path="/ai" element={<AIPage />} />
               <Route path="/alerts" element={<AlertsPage />} />
-              <Route path="/saved" element={<PlaceholderPage title="Saved Places" subtitle="Bookmark routes and areas you care about — coming soon." />} />
-              <Route path="/settings" element={<PlaceholderPage title="Settings" subtitle="Personalise alerts, units, and your home area — coming soon." />} />
+              <Route path="/saved" element={<SavedPlacesPage />} />
+              <Route path="/settings" element={<SettingsPage />} />
             </Routes>
           </main>
         </div>

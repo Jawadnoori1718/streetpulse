@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
-import { ThumbsUp, MapPin } from 'lucide-react';
+import { ThumbsUp, MapPin, Search } from 'lucide-react';
 import { fetchIncidents } from '../services/api';
 import type { Incident, IncidentSeverity } from '../types';
 
@@ -11,6 +12,8 @@ export default function ReportsPage() {
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [filter, setFilter] = useState<'ALL' | IncidentSeverity>('ALL');
   const [loading, setLoading] = useState(true);
+  const [params, setParams] = useSearchParams();
+  const q = (params.get('q') ?? '').toLowerCase();
 
   useEffect(() => {
     fetchIncidents().then(setIncidents).catch(() => {}).finally(() => setLoading(false));
@@ -19,15 +22,23 @@ export default function ReportsPage() {
   const list = useMemo(() => {
     return [...incidents]
       .filter((i) => filter === 'ALL' || i.severity === filter)
+      .filter((i) => !q || (`${i.title} ${i.area ?? ''} ${i.description ?? ''} ${i.category}`).toLowerCase().includes(q))
       .sort((a, b) => new Date(b.reportedAt).getTime() - new Date(a.reportedAt).getTime());
-  }, [incidents, filter]);
+  }, [incidents, filter, q]);
 
   return (
     <div style={{ padding: 16, maxWidth: 900, margin: '0 auto' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, marginBottom: 16 }}>
         <div>
           <h1 style={{ margin: '4px 0 4px', fontSize: 22, fontWeight: 700, color: '#fff' }}>Reports</h1>
-          <p style={{ margin: 0, fontSize: 14, color: 'var(--text-2)' }}>{incidents.length} community reports · sorted by most recent</p>
+          {q ? (
+            <p style={{ margin: 0, fontSize: 14, color: 'var(--text-2)', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <Search size={13} /> {list.length} result{list.length === 1 ? '' : 's'} for “{q}”
+              <button onClick={() => setParams({})} className="sp-chip" style={{ border: 'none', cursor: 'pointer', background: 'rgba(239,68,68,0.14)', color: '#fca5a5' }}>clear</button>
+            </p>
+          ) : (
+            <p style={{ margin: 0, fontSize: 14, color: 'var(--text-2)' }}>{incidents.length} community reports · sorted by most recent</p>
+          )}
         </div>
         <div style={{ display: 'flex', gap: 6 }}>
           {FILTERS.map((f) => (
