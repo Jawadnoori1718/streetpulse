@@ -2,35 +2,31 @@ import { MapContainer, TileLayer, CircleMarker, Circle, useMapEvents } from 'rea
 import 'leaflet/dist/leaflet.css';
 import type { Incident, IncidentSeverity, FilterState, PoliceIncident, RiskCell } from '../types';
 
-// Free, no-key, no-billing map: OpenStreetMap tiles via Leaflet.
+// Free, no-key, no-billing dark map: CartoDB dark tiles via Leaflet.
 const CENTER: [number, number] = [51.5441, -0.4779];
 
 const SEVERITY_COLOR: Record<IncidentSeverity, string> = {
-  HIGH:   '#dc2626',
-  MEDIUM: '#d97706',
-  LOW:    '#16a34a',
+  HIGH:   '#ef4444',
+  MEDIUM: '#f59e0b',
+  LOW:    '#22c55e',
 };
 
-const SEVERITY_RADIUS: Record<IncidentSeverity, number> = {
-  HIGH:   11,
-  MEDIUM: 9,
-  LOW:    7,
-};
+const SEVERITY_RADIUS: Record<IncidentSeverity, number> = { HIGH: 9, MEDIUM: 7, LOW: 6 };
 
-// Risk → colour, matching the legend in the Risk Forecast control (green → red).
+// Risk → colour (matches the Risk Level legend): very-high red → very-low grey.
 function riskColor(score: number): string {
-  if (score < 20) return '#16a34a';
-  if (score < 40) return '#84cc16';
-  if (score < 60) return '#eab308';
-  if (score < 80) return '#f97316';
-  return '#dc2626';
+  if (score >= 80) return '#ef4444';
+  if (score >= 60) return '#f97316';
+  if (score >= 40) return '#f59e0b';
+  if (score >= 20) return '#22c55e';
+  return '#64748b';
 }
 
 interface SafeMapProps {
   incidents: Incident[];
   filters: FilterState;
   onMapClick: (lat: number, lng: number) => void;
-  onIncidentsUpdate: () => void;
+  onIncidentsUpdate?: () => void;
   onIncidentSelect: (inc: Incident) => void;
   onPoliceSelect: (pc: PoliceIncident) => void;
   policeCrimes?: PoliceIncident[];
@@ -39,7 +35,6 @@ interface SafeMapProps {
   showRisk?: boolean;
 }
 
-// Translate map clicks into "report here".
 function ClickHandler({ onMapClick }: { onMapClick: (lat: number, lng: number) => void }) {
   useMapEvents({ click: (e) => onMapClick(e.latlng.lat, e.latlng.lng) });
   return null;
@@ -66,31 +61,28 @@ export default function SafeMap({
     <MapContainer
       center={CENTER}
       zoom={14}
-      minZoom={12}
+      minZoom={11}
       maxZoom={18}
       scrollWheelZoom
-      style={{ height: '100%', width: '100%' }}
+      style={{ height: '100%', width: '100%', background: '#0a0a0f' }}
     >
       <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
+        url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+        subdomains="abcd"
       />
 
       <ClickHandler onMapClick={onMapClick} />
 
-      {/* Risk forecast heat field — soft overlapping circles (non-interactive, so clicks pass through) */}
+      {/* Risk forecast heat field — soft overlapping circles glow on the dark map */}
       {showRisk &&
         riskCells.map((c, i) => (
           <Circle
             key={`risk-${i}`}
             center={[c.latitude, c.longitude]}
-            radius={280}
+            radius={340}
             interactive={false}
-            pathOptions={{
-              stroke: false,
-              fillColor: riskColor(c.score),
-              fillOpacity: 0.12 + (c.score / 100) * 0.28,
-            }}
+            pathOptions={{ stroke: false, fillColor: riskColor(c.score), fillOpacity: 0.10 + (c.score / 100) * 0.34 }}
           />
         ))}
 
@@ -102,8 +94,8 @@ export default function SafeMap({
             <CircleMarker
               key={`police-${pc.id}`}
               center={[pc.latitude!, pc.longitude!]}
-              radius={5}
-              pathOptions={{ color: '#6366f1', fillColor: '#6366f1', fillOpacity: 0.55, weight: 1 }}
+              radius={4}
+              pathOptions={{ color: '#818cf8', fillColor: '#818cf8', fillOpacity: 0.5, weight: 1 }}
               eventHandlers={{ click: () => onPoliceSelect(pc) }}
             />
           ))}
@@ -115,9 +107,9 @@ export default function SafeMap({
           <Circle
             key={`ring-${inc.id}`}
             center={[inc.latitude, inc.longitude]}
-            radius={90}
+            radius={70}
             interactive={false}
-            pathOptions={{ color: '#dc2626', fillColor: '#dc2626', fillOpacity: 0.08, opacity: 0.2, weight: 1 }}
+            pathOptions={{ color: '#ef4444', fillColor: '#ef4444', fillOpacity: 0.12, opacity: 0.35, weight: 1 }}
           />
         ))}
 
@@ -127,7 +119,7 @@ export default function SafeMap({
           key={`inc-${inc.id}`}
           center={[inc.latitude, inc.longitude]}
           radius={SEVERITY_RADIUS[inc.severity]}
-          pathOptions={{ color: '#ffffff', fillColor: SEVERITY_COLOR[inc.severity], fillOpacity: 0.9, weight: 2 }}
+          pathOptions={{ color: 'rgba(255,255,255,0.85)', fillColor: SEVERITY_COLOR[inc.severity], fillOpacity: 0.95, weight: 1.5 }}
           eventHandlers={{ click: () => onIncidentSelect(inc) }}
         />
       ))}

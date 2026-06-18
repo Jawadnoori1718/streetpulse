@@ -1,27 +1,13 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+<svg width="48" height="48" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <radialGradient id="bg-grad" cx="40%" cy="35%" r="65%">
-      <stop offset="0%"   stop-color="#2a5298"/>
-      <stop offset="100%" stop-color="#1e3a5f"/>
-    </radialGradient>
-    <radialGradient id="teal-grad" cx="40%" cy="35%" r="65%">
-      <stop offset="0%"   stop-color="#14b8a6"/>
-      <stop offset="100%" stop-color="#0d9488"/>
-    </radialGradient>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ef4444"/>
+      <stop offset="1" stop-color="#b91c1c"/>
+    </linearGradient>
   </defs>
-
-  <!-- Navy background circle -->
-  <circle cx="32" cy="32" r="31" fill="url(#bg-grad)"/>
-
-  <!-- Outer pulse ring -->
-  <circle cx="32" cy="27" r="20" fill="none" stroke="#0d9488" stroke-width="1.5" opacity="0.5"/>
-
-  <!-- Pin body — white -->
-  <path d="M32 10 C22 10 15 18 15 26 C15 37.5 32 54 32 54 C32 54 49 37.5 49 26 C49 18 42 10 32 10 Z" fill="white"/>
-
-  <!-- Teal inner circle -->
-  <circle cx="32" cy="26" r="8.5" fill="url(#teal-grad)"/>
-
-  <!-- White centre dot -->
-  <circle cx="32" cy="26" r="3.5" fill="white"/>
+  <rect width="48" height="48" rx="13" fill="url(#g)"/>
+  <g transform="translate(12,12)" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 2.5 20 5.2v6.1c0 4.9-3.4 8.8-8 10.2-4.6-1.4-8-5.3-8-10.2V5.2L12 2.5Z" fill="rgba(255,255,255,0.16)"/>
+    <path d="M5.5 12.5h3l1.6-3.2 2.2 5 1.5-2.6h4.2"/>
+  </g>
 </svg>
