@@ -1,4 +1,4 @@
-import { MapContainer, TileLayer, CircleMarker, Circle, useMapEvents } from 'react-leaflet';
+import { MapContainer, TileLayer, CircleMarker, Circle, Pane, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import type { Incident, IncidentSeverity, FilterState, PoliceIncident, RiskCell } from '../types';
 
@@ -74,17 +74,20 @@ export default function SafeMap({
 
       <ClickHandler onMapClick={onMapClick} />
 
-      {/* Risk forecast heat field — soft overlapping circles glow on the dark map */}
-      {showRisk &&
-        riskCells.map((c, i) => (
-          <Circle
-            key={`risk-${i}`}
-            center={[c.latitude, c.longitude]}
-            radius={340}
-            interactive={false}
-            pathOptions={{ stroke: false, fillColor: riskColor(c.score), fillOpacity: 0.10 + (c.score / 100) * 0.34 }}
-          />
-        ))}
+      {/* Risk forecast heat field — soft circles rendered into a blurred pane = smooth glow */}
+      {showRisk && riskCells.length > 0 && (
+        <Pane name="heatglow" style={{ zIndex: 350, filter: 'blur(22px)', pointerEvents: 'none' }}>
+          {riskCells.map((c, i) => (
+            <Circle
+              key={`risk-${i}`}
+              center={[c.latitude, c.longitude]}
+              radius={300}
+              interactive={false}
+              pathOptions={{ stroke: false, fillColor: riskColor(c.score), fillOpacity: 0.16 + (c.score / 100) * 0.38 }}
+            />
+          ))}
+        </Pane>
+      )}
 
       {/* Police UK crime markers */}
       {showPolice &&

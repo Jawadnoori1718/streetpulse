@@ -11,10 +11,12 @@ public class WebConfig implements WebMvcConfigurer {
 
     @Override
     public void addCorsMappings(CorsRegistry registry) {
+        // Allow any localhost port in dev (5173/5174/3000/…) plus 127.0.0.1.
+        // For production, add your deployed frontend origin here.
         registry.addMapping("/api/**")
-                .allowedOrigins(
-                    "http://localhost:5173",
-                    "http://localhost:3000"
+                .allowedOriginPatterns(
+                    "http://localhost:*",
+                    "http://127.0.0.1:*"
                 )
                 .allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
                 .allowedHeaders("*")

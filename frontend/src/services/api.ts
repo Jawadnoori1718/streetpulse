@@ -85,6 +85,27 @@ export async function fetchAlerts(): Promise<Alert[]> {
   return data;
 }
 
+// ── Auth (real accounts, hashed passwords) ─────────────────
+
+export interface AuthUser { name: string; email: string; }
+
+export async function registerUser(name: string, email: string, password: string): Promise<AuthUser> {
+  const { data } = await api.post<AuthUser>('/auth/register', { name, email, password });
+  return data;
+}
+
+export async function loginUser(email: string, password: string): Promise<AuthUser> {
+  const { data } = await api.post<AuthUser>('/auth/login', { email, password });
+  return data;
+}
+
+/** Pull a friendly message out of an axios error from the auth endpoints. */
+export function authErrorMessage(e: unknown): string {
+  const ax = e as { response?: { data?: { error?: string } }; message?: string };
+  if (ax?.response?.data?.error) return ax.response.data.error;
+  return 'Could not reach the server. Is the backend running on port 8080?';
+}
+
 // ── Risk model ────────────────────────────────────────────
 
 /** Fetch the risk grid for the heat-map, optionally for a given hour of day (0–23). */
